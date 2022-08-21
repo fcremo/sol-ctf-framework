@@ -13,7 +13,7 @@ use solana_sdk::{
     signature::Keypair,
     pubkey::Pubkey,
 };
-
+use spl_associated_token_account;
 use tempfile::Builder;
 
 
@@ -111,6 +111,26 @@ impl<R: BufRead, W: Write> Challenge<R, W> {
             output,
             builder,
         }
+    }
+
+    pub async fn add_associated_token_account(&mut self, mint: &Pubkey, owner: &Pubkey) -> Result<Pubkey, Box<dyn Error>> {
+        let payer = &self.ctx.payer;
+        let ix = spl_associated_token_account::create_associated_token_account(
+            &payer.pubkey(),
+            owner,
+            mint,
+        );
+        let token_account = ix.accounts[1].pubkey;
+
+        let mut tx = Transaction::new_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+        );
+        tx.sign(&[payer], self.ctx.last_blockhash);
+        self.ctx.banks_client
+            .process_transaction_with_preflight(tx)
+            .await?;
+        Ok(token_account)
     }
 
     pub async fn add_token_account(&mut self, mint: &Pubkey, owner: &Pubkey) -> Result<Pubkey, Box<dyn Error>> {
